@@ -7,9 +7,9 @@ require (
 	github.com/rustyeddy/otto v0.0.10
 )
 
-// replace github.com/rustyeddy/otto => ../otto
+replace github.com/rustyeddy/otto => ../otto
 
-// replace github.com/rustyeddy/devices => ../devices
+replace github.com/rustyeddy/devices => ../devices
 
 require (
 	github.com/creack/goselect v0.1.2 // indirect
