@@ -85,33 +85,3 @@ jobs:
           name: garden-station-${{ matrix.build.name }}
           path: dist/*${{ matrix.build.name }}*
           if-no-files-found: error
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Build binary
-        env:
-          GOOS: ${{ matrix.target.goos }}
-          GOARCH: ${{ matrix.target.goarch }}
-          GOARM: ${{ matrix.target.goarm }}
-        run: |
-          mkdir -p dist
-          echo "Building for $GOOS/$GOARCH${GOARM:+ (GOARM=$GOARM)}"
-          BIN_NAME=garden-station-${{ matrix.target.name }}
-          go build -trimpath -ldflags "-s -w" -o dist/$BIN_NAME ./...
-          ls -l dist
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: garden-station-${{ matrix.target.name }}
-          path: dist/garden-station-${{ matrix.target.name }}
-
-      - name: Run tests (linux-amd64 only)
-        if: matrix.target.name == 'linux-amd64'
-        run: go test -v ./...
