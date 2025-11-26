@@ -16,10 +16,8 @@ import (
 type Config struct {
 	StationName string
 	Mock        bool
-	UseLocal    bool
-	MQTTBroker  string
 	Log         utils.LogConfig
-	Msg         messanger.MessangerConfig
+	messanger.Config
 }
 
 var (
@@ -28,8 +26,9 @@ var (
 
 func init() {
 	flag.BoolVar(&config.Mock, "mock", false, "mock gpio")
-	flag.BoolVar(&config.UseLocal, "local", false, "use local messaging (no MQTT)")
-	flag.StringVar(&config.MQTTBroker, "mqtt-broker", "test.mosquitto.org", "MQTT broker address")
+	flag.StringVar(&config.Broker, "mqtt-broker", "otto", "MQTT broker address")
+	flag.StringVar(&config.Username, "mqtt-username", "", "MQTT broker address")
+	flag.StringVar(&config.Password, "mqtt-password", "", "MQTT broker address")
 	flag.StringVar(&config.StationName, "station-name", "gardener", "station name")
 
 	// Logging flags
@@ -39,8 +38,6 @@ func init() {
 	flag.StringVar(&config.Log.FilePath, "log-file", "garden-station.log", "log file path (when log-output=file)")
 	config.Log.Output.Set("file")
 	config.Log.Format.Set("text")
-
-	flag.StringVar(&config.Msg.Broker, "broker", "local", "which broker MQTT should use")
 }
 
 func main() {
@@ -55,8 +52,7 @@ func main() {
 	slog.Info("starting garden-station",
 		"station", config.StationName,
 		"mock", config.Mock,
-		"local", config.UseLocal,
-		"mqtt_broker", config.MQTTBroker,
+		"broker", config.Broker,
 		"log_level", config.Log.Level,
 		"log_output", config.Log.Output,
 	)

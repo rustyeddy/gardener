@@ -1,4 +1,4 @@
-module github.com/rustyeddy/garden-station
+module github.com/rustyeddy/gardener
 
 go 1.24.5
 

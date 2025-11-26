@@ -25,13 +25,6 @@ type Gardener struct {
 	Done chan any
 }
 
-func (g *Gardener) GetMessanger() messanger.Messanger {
-	if g.Messanger == nil {
-		g.Messanger = messanger.NewMessanger(config.Msg.Broker)
-	}
-	return g.Messanger
-}
-
 func (g *Gardener) GetDeviceManager() *station.DeviceManager {
 	if g.DeviceManager == nil {
 		g.DeviceManager = station.NewDeviceManager()
@@ -50,17 +43,21 @@ var (
 )
 
 func (g *Gardener) Init() {
-	g.Messanger = g.GetMessanger()
+	g.Messanger = messanger.GetMessanger()
 	g.DeviceManager = g.GetDeviceManager()
 	g.StationManager = station.NewStationManager()
 	g.Server = server.GetServer()
 	g.Done = make(chan any)
 
 	g.initButtons()
-	g.InitSoil()
 	g.initPump()
 	g.initEnv()
 	g.initDisplay()
+	soil := g.InitSoil()
+
+	if config.Mock {
+		go g.emulator(soil)
+	}
 }
 
 func (g *Gardener) initButtons() {
@@ -74,9 +71,7 @@ func (g *Gardener) initButtons() {
 		switch evt.Type {
 		case devices.DeviceEventRisingEdge:
 			slog.Info("button pressed", "button", "on", "action", "pump_on")
-			g.Messanger.Pub("pump", []byte("on"))
-			g.Messanger.Pub("blue", []byte("on"))
-			g.Messanger.Pub("display", []byte("Pump ON"))
+			g.Messanger.Pub("on", []byte("on"))
 		}
 	})
 
@@ -89,14 +84,12 @@ func (g *Gardener) initButtons() {
 		switch evt.Type {
 		case devices.DeviceEventRisingEdge:
 			slog.Info("button pressed", "button", "off", "action", "pump_off")
-			g.Messanger.Pub("pump", []byte("off"))
-			g.Messanger.Pub("blue", []byte("off"))
-			g.Messanger.Pub("display", []byte("Pump OFF"))
+			g.Messanger.Pub("off", []byte("off"))
 		}
 	})
 }
 
-func (g *Gardener) InitSoil() {
+func (g *Gardener) InitSoil() *vh400.VH400 {
 	soil, err := vh400.New("soil", pinmap["soil"])
 	if err != nil {
 		panic(err)
@@ -112,6 +105,7 @@ func (g *Gardener) InitSoil() {
 		g.Messanger.Pub("soil", []byte(fmt.Sprintf("%5.2f", value)))
 	}
 	soil.StartTicker(10*time.Second, &cb)
+	return soil
 }
 
 func (g *Gardener) initPump() {
@@ -163,10 +157,60 @@ func (g *Gardener) initDisplay() {
 }
 
 func (g *Gardener) Start() {
+	err := g.Messanger.Connect()
+	if err != nil {
+		slog.Error("gardener failed to connect to broker ", "error", err)
+		return
+	}
+
 	// Implement start logic if needed
+	g.Subscribe("soil", func(msg *messanger.Msg) error {
+		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
+		return nil
+	})
+
+	// Implement start logic if needed
+	g.Subscribe("env", func(msg *messanger.Msg) error {
+		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
+		return nil
+	})
+
+	// Implement start logic if needed
+	g.Subscribe("on", func(msg *messanger.Msg) error {
+		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
+		return nil
+	})
+
+	// Implement start logic if needed
+	g.Subscribe("off", func(msg *messanger.Msg) error {
+		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
+		return nil
+	})
 }
 
 func (g *Gardener) Stop() {
 	// Implement stop logic if needed
 	g.Done <- true
+}
+
+func (g *Gardener) emulator(soil *vh400.VH400) {
+	ticker := time.NewTicker(5 * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <-g.Done:
+				return // Exit the goroutine when done signal is received
+			case _ = <-ticker.C:
+				// Execute this code at each tick
+				v, err := soil.Pin.Get()
+				if err != nil {
+					slog.Error("emulator failure", "error", err)
+					continue
+				}
+				v += 0.02
+				soil.Pin.Set(v)
+			}
+		}
+	}()
 }
