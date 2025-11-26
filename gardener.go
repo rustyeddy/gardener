@@ -205,7 +205,7 @@ func (g *Gardener) emulator(soil *vh400.VH400) {
 				// Execute this code at each tick
 				v, err := soil.Pin.Get()
 				if err != nil {
-					slog.Error("error", err)
+					slog.Error("emulator failure", "error", err)
 					continue
 				}
 				v += 0.02
