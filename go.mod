@@ -3,8 +3,8 @@ module github.com/rustyeddy/gardener
 go 1.24.5
 
 require (
-	github.com/rustyeddy/devices v0.0.1
-	github.com/rustyeddy/otto v0.0.9
+	github.com/rustyeddy/devices v0.0.2
+	github.com/rustyeddy/otto v0.0.10
 )
 
 replace github.com/rustyeddy/otto => ../otto
