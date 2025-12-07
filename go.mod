@@ -3,13 +3,13 @@ module github.com/rustyeddy/gardener
 go 1.24.5
 
 require (
-	github.com/rustyeddy/devices v0.0.2
-	github.com/rustyeddy/otto v0.0.10
+	github.com/rustyeddy/devices v0.0.3
+	github.com/rustyeddy/otto v0.0.11
 )
 
-replace github.com/rustyeddy/otto => ../otto
+// replace github.com/rustyeddy/otto => ../otto
 
-replace github.com/rustyeddy/devices => ../devices
+// replace github.com/rustyeddy/devices => ../devices
 
 require (
 	github.com/creack/goselect v0.1.2 // indirect
