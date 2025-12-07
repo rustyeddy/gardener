@@ -35,7 +35,7 @@ func init() {
 	flag.StringVar(&config.Log.Level, "log-level", "info", "log level: debug, info, warn, error")
 	flag.Var(&config.Log.Output, "log-output", "log output: stdout, stderr, file")
 	flag.Var(&config.Log.Format, "log-format", "log format: text, json")
-	flag.StringVar(&config.Log.FilePath, "log-file", "garden-station.log", "log file path (when log-output=file)")
+	flag.StringVar(&config.Log.FilePath, "log-file", "gardener.log", "log file path (when log-output=file)")
 	config.Log.Output.Set("file")
 	config.Log.Format.Set("text")
 }
@@ -49,7 +49,7 @@ func main() {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}
 
-	slog.Info("starting garden-station",
+	slog.Info("starting gardener",
 		"station", config.StationName,
 		"mock", config.Mock,
 		"broker", config.Broker,
@@ -64,7 +64,7 @@ func main() {
 
 	gardener := &Gardener{}
 	gardener.Init()
-	go gardener.Start()
+	gardener.Start()
 
 	// Handle OS signals and call Stop() for graceful shutdown
 	signals := make(chan os.Signal, 1)

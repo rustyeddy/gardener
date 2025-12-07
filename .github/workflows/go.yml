@@ -1,7 +1,7 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: Go
+name: Go Multi-Arch
 
 on:
   push:
@@ -10,19 +10,78 @@ on:
     branches: [ "main" ]
 
 jobs:
-
   build:
-    runs-on: ubuntu-latest
+    # Matrix includes differing host runners when required (mac/windows)
+    strategy:
+      fail-fast: false
+      matrix:
+        build:
+          - name: linux-amd64
+            os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - name: linux-armv6   # Raspberry Pi Zero / older
+            os: ubuntu-latest
+            goos: linux
+            goarch: arm
+            goarm: '6'
+          - name: linux-armv7   # Raspberry Pi 3 (32-bit)
+            os: ubuntu-latest
+            goos: linux
+            goarch: arm
+            goarm: '7'
+          - name: linux-arm64   # Raspberry Pi 4/5 64-bit
+            os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - name: darwin-amd64  # macOS Intel
+            os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - name: darwin-arm64  # macOS Apple Silicon
+            os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - name: windows-amd64 # Windows 64-bit
+            os: windows-latest
+            goos: windows
+            goarch: amd64
+    runs-on: ${{ matrix.build.os }}
+    name: Build ${{ matrix.build.name }}
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up Go
-      uses: actions/setup-go@v4
-      with:
-        go-version: '1.20'
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
 
-    - name: Build
-      run: go build -v ./...
+      - name: Prepare dist directory
+        run: mkdir -p dist
 
-    - name: Test
-      run: go test -v ./...
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.build.goos }}
+          GOARCH: ${{ matrix.build.goarch }}
+          GOARM: ${{ matrix.build.goarm }}
+        run: |
+          set -e
+          BIN_NAME=garden-station
+          EXT=""
+          if [ "$GOOS" = "windows" ]; then EXT=".exe"; fi
+          OUT="dist/${BIN_NAME}-${{ matrix.build.name }}${EXT}"
+          echo "Building $OUT (GOOS=$GOOS GOARCH=$GOARCH GOARM=$GOARM)"
+          go build -trimpath -ldflags "-s -w" -o "$OUT" ./...
+          ls -l "$OUT"
+
+      - name: Run tests (single variant)
+        if: matrix.build.name == 'linux-amd64'
+        run: go test -v ./...
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: garden-station-${{ matrix.build.name }}
+          path: dist/*${{ matrix.build.name }}*
+          if-no-files-found: error
