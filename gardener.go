@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/rustyeddy/devices"
+	"github.com/rustyeddy/devices/bme280"
 	"github.com/rustyeddy/devices/button"
-	"github.com/rustyeddy/devices/env"
 	"github.com/rustyeddy/devices/oled"
 	"github.com/rustyeddy/devices/relay"
 	"github.com/rustyeddy/devices/vh400"
@@ -18,9 +18,18 @@ import (
 
 type Gardener struct {
 	messanger.Messanger
-	*station.DeviceManager
 	*station.StationManager
 	*server.Server
+
+	// Do we really need a device manager?
+	*station.DeviceManager
+
+	soil    *vh400.VH400
+	env     *bme280.BME280
+	pump    *relay.Relay
+	on      *button.Button
+	off     *button.Button
+	display *oled.OLED
 
 	Done chan any
 }
@@ -53,78 +62,66 @@ func (g *Gardener) Init() {
 	g.initPump()
 	g.initEnv()
 	g.initDisplay()
-	soil := g.InitSoil()
-
-	if config.Mock {
-		go g.emulator(soil)
-	}
+	g.InitSoil()
 }
 
 func (g *Gardener) initButtons() {
-	on, err := button.New("on", pinmap["on"])
+	var err error
+	g.on, err = button.New("on", pinmap["on"])
 	if err != nil {
 		panic(err)
 	}
-	g.DeviceManager.Add(on)
-
-	on.RegisterEventHandler(func(evt *devices.DeviceEvent) {
+	g.DeviceManager.Add(g.on)
+	g.on.RegisterEventHandler(func(evt *devices.DeviceEvent) {
 		switch evt.Type {
 		case devices.DeviceEventRisingEdge:
 			slog.Info("button pressed", "button", "on", "action", "pump_on")
-			g.Messanger.Pub("on", []byte("on"))
+			g.Messanger.Pub("d/on", []byte("on"))
 		}
 	})
 
-	off, err := button.New("off", pinmap["off"])
+	g.off, err = button.New("off", pinmap["off"])
 	if err != nil {
 		panic(err)
 	}
-	g.DeviceManager.Add(off)
-	off.RegisterEventHandler(func(evt *devices.DeviceEvent) {
+	g.DeviceManager.Add(g.off)
+	g.off.RegisterEventHandler(func(evt *devices.DeviceEvent) {
 		switch evt.Type {
 		case devices.DeviceEventRisingEdge:
 			slog.Info("button pressed", "button", "off", "action", "pump_off")
-			g.Messanger.Pub("off", []byte("off"))
+			g.Messanger.Pub("d/off", []byte("off"))
 		}
 	})
 }
 
-func (g *Gardener) InitSoil() *vh400.VH400 {
-	soil, err := vh400.New("soil", pinmap["soil"])
+func (g *Gardener) InitSoil() {
+	var err error
+	g.soil, err = vh400.New("soil", pinmap["soil"])
 	if err != nil {
 		panic(err)
 	}
-	g.DeviceManager.Add(soil)
+	g.DeviceManager.Add(g.soil)
 	cb := func(t time.Time) {
-		value, err := soil.Get()
+		value, err := g.soil.Get()
 		if err != nil {
 			slog.Error("soil sensor read failed", "error", err)
 			return
 		}
 		slog.Info("soil moisture reading", "value", value)
-		g.Messanger.Pub("soil", []byte(fmt.Sprintf("%5.2f", value)))
+		g.Messanger.Pub("d/soil", []byte(fmt.Sprintf("%5.2f", value)))
 	}
-	soil.StartTicker(10*time.Second, &cb)
-	return soil
-}
-
-func (g *Gardener) initPump() {
-	pump, err := relay.New("pump", pinmap["pump"])
-	if err != nil {
-		panic(err)
-	}
-	g.Messanger.Subscribe("pump", pump.HandleMsg)
+	g.soil.StartTicker(10*time.Second, &cb)
 }
 
 func (g *Gardener) initEnv() {
-
-	env, err := env.New("env", "/dev/i2c-1", 0x76)
+	var err error
+	g.env, err = bme280.New("env", "/dev/i2c-1", 0x76)
 	if err != nil {
 		panic(err)
 	}
-	g.DeviceManager.Add(env)
+	g.DeviceManager.Add(g.env)
 	ticker := func(t time.Time) {
-		resp, err := env.Get()
+		resp, err := g.env.Get()
 		if err != nil {
 			slog.Error("env sensor read failed", "error", err)
 			return
@@ -140,13 +137,22 @@ func (g *Gardener) initEnv() {
 			return
 		}
 		slog.Info("env sensor json", "data", string(jbuf))
-		g.Messanger.Pub("env", jbuf)
+		g.Messanger.Pub("d/env", jbuf)
 	}
-	env.StartTicker(10*time.Second, &ticker)
+	g.env.StartTicker(10*time.Second, &ticker)
+}
+
+func (g *Gardener) initPump() {
+	var err error
+	g.pump, err = relay.New("pump", pinmap["pump"])
+	if err != nil {
+		panic(err)
+	}
+	g.Messanger.Subscribe("c/pump", g.pump.HandleMsg)
 }
 
 func (g *Gardener) initDisplay() {
-	display, err := oled.New("lcd", 0x27, 1)
+	display, err := oled.New("c/lcd", 0x27, 1)
 	if err != nil {
 		panic(err)
 	}
@@ -163,29 +169,36 @@ func (g *Gardener) Start() {
 		return
 	}
 
-	// Implement start logic if needed
-	g.Subscribe("soil", func(msg *messanger.Msg) error {
-		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
-		return nil
-	})
+	topics := []string{"soil", "env", "on", "off", "pump", "display"}
+	for _, topic := range topics {
+		g.Subscribe(topic, g.MsgHandler)
+	}
+	if config.Mock {
+		md := g.DeviceManager.GetDevice("soil")
+		soil := md.(*vh400.VH400)
+		g.emulator(soil)
+	}
 
-	// Implement start logic if needed
-	g.Subscribe("env", func(msg *messanger.Msg) error {
-		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
-		return nil
-	})
+}
 
-	// Implement start logic if needed
-	g.Subscribe("on", func(msg *messanger.Msg) error {
-		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
-		return nil
-	})
+func (g *Gardener) MsgHandler(msg *messanger.Msg) error {
+	slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
 
-	// Implement start logic if needed
-	g.Subscribe("off", func(msg *messanger.Msg) error {
-		slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
-		return nil
-	})
+	switch msg.Topic {
+	case "soil":
+		fmt.Println("Got soil: ")
+
+	case "env":
+		fmt.Println("Got env: ")
+
+	case "on", "off":
+		fmt.Println("Got a button")
+
+	default:
+		slog.Error("unknown msg type", "topic", msg.Topic, "msg", msg)
+	}
+	fmt.Printf("msg: %#v\n", msg)
+	return nil
 }
 
 func (g *Gardener) Stop() {
