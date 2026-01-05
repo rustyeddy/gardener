@@ -9,7 +9,6 @@ import (
 	"syscall"
 
 	"github.com/rustyeddy/devices"
-	"github.com/rustyeddy/otto/messanger"
 	"github.com/rustyeddy/otto/utils"
 )
 
@@ -17,7 +16,10 @@ type Config struct {
 	StationName string
 	Mock        bool
 	Log         utils.LogConfig
-	messanger.Config
+
+	Broker   string
+	Username string
+	Password string
 }
 
 var (
@@ -44,7 +46,7 @@ func main() {
 	flag.Parse()
 
 	// Initialize structured logging
-	_, err := utils.InitLoggerWithConfig(config.Log)
+	_, err := utils.InitLogger(config.Log)
 	if err != nil {
 		log.Fatalf("Failed to initialize logger: %v", err)
 	}

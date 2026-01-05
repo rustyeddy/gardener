@@ -11,18 +11,16 @@ import (
 	"github.com/rustyeddy/devices/oled"
 	"github.com/rustyeddy/devices/relay"
 	"github.com/rustyeddy/devices/vh400"
-	"github.com/rustyeddy/otto/messanger"
+	"github.com/rustyeddy/otto/messenger"
 	"github.com/rustyeddy/otto/server"
 	"github.com/rustyeddy/otto/station"
 )
 
 type Gardener struct {
-	messanger.Messanger
+	*messenger.Messenger
 	*station.StationManager
 	*server.Server
-
-	// Do we really need a device manager?
-	*station.DeviceManager
+	*station.DeviceManager // is this really needed?
 
 	soil    *vh400.VH400
 	env     *bme280.BME280
@@ -52,7 +50,7 @@ var (
 )
 
 func (g *Gardener) Init() {
-	g.Messanger = messanger.GetMessanger()
+	g.Messenger = messenger.GetMessenger()
 	g.DeviceManager = g.GetDeviceManager()
 	g.StationManager = station.NewStationManager()
 	g.Server = server.GetServer()
@@ -76,7 +74,7 @@ func (g *Gardener) initButtons() {
 		switch evt.Type {
 		case devices.DeviceEventRisingEdge:
 			slog.Info("button pressed", "button", "on", "action", "pump_on")
-			g.Messanger.Pub("d/on", []byte("on"))
+			g.Messenger.Pub("d/on", []byte("on"))
 		}
 	})
 
@@ -89,7 +87,7 @@ func (g *Gardener) initButtons() {
 		switch evt.Type {
 		case devices.DeviceEventRisingEdge:
 			slog.Info("button pressed", "button", "off", "action", "pump_off")
-			g.Messanger.Pub("d/off", []byte("off"))
+			g.Messenger.Pub("d/off", []byte("off"))
 		}
 	})
 }
@@ -108,7 +106,7 @@ func (g *Gardener) InitSoil() {
 			return
 		}
 		slog.Info("soil moisture reading", "value", value)
-		g.Messanger.Pub("d/soil", []byte(fmt.Sprintf("%5.2f", value)))
+		g.Messenger.Pub("d/soil", []byte(fmt.Sprintf("%5.2f", value)))
 	}
 	g.soil.StartTicker(10*time.Second, &cb)
 }
@@ -137,7 +135,7 @@ func (g *Gardener) initEnv() {
 			return
 		}
 		slog.Info("env sensor json", "data", string(jbuf))
-		g.Messanger.Pub("d/env", jbuf)
+		g.Messenger.Pub("d/env", jbuf)
 	}
 	g.env.StartTicker(10*time.Second, &ticker)
 }
@@ -148,7 +146,7 @@ func (g *Gardener) initPump() {
 	if err != nil {
 		panic(err)
 	}
-	g.Messanger.Subscribe("c/pump", g.pump.HandleMsg)
+	g.Messenger.Sub("c/pump", g.pump.HandleMsg)
 }
 
 func (g *Gardener) initDisplay() {
@@ -163,7 +161,7 @@ func (g *Gardener) initDisplay() {
 }
 
 func (g *Gardener) Start() {
-	err := g.Messanger.Connect()
+	err := g.Messenger.Connect()
 	if err != nil {
 		slog.Error("gardener failed to connect to broker ", "error", err)
 		return
@@ -171,7 +169,7 @@ func (g *Gardener) Start() {
 
 	topics := []string{"soil", "env", "on", "off", "pump", "display"}
 	for _, topic := range topics {
-		g.Subscribe(topic, g.MsgHandler)
+		g.Sub(topic, g.MsgHandler)
 	}
 	if config.Mock {
 		md := g.DeviceManager.GetDevice("soil")
@@ -181,7 +179,7 @@ func (g *Gardener) Start() {
 
 }
 
-func (g *Gardener) MsgHandler(msg *messanger.Msg) error {
+func (g *Gardener) MsgHandler(msg *messenger.Msg) error {
 	slog.Info("MQTT [I]", "topic", msg.Topic, "value", msg.Data)
 
 	switch msg.Topic {

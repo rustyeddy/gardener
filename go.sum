@@ -28,10 +28,6 @@ github.com/rogpeppe/go-internal v1.9.0 h1:73kH8U+JUqXU8lRuOHeVHaa/SZPifC7BkcraZV
 github.com/rogpeppe/go-internal v1.9.0/go.mod h1:WtVeX8xhTBvf0smdhujwtBcq4Qrzq/fJaraNFVN+nFs=
 github.com/rs/xid v1.4.0 h1:qd7wPTDkN6KQx2VmMBLrpHkiyQwgFXRnkOLacUiaSNY=
 github.com/rs/xid v1.4.0/go.mod h1:trrq9SKmegXys3aeAKXMUTdJsYXVwGY3RLcfgqegfbg=
-github.com/rustyeddy/devices v0.0.3 h1:iESZs2GRHxijcHeaITWwg5nGR/UClG/8PrhD2tnE/gQ=
-github.com/rustyeddy/devices v0.0.3/go.mod h1:8a+9qM+zIqmFwW1bu9DzNdWELXeP59lDjKD0sgzlv3M=
-github.com/rustyeddy/otto v0.0.11 h1:yTOiTk/4iRyeoP0s62qXoZjaugOOYDoszeOpCW03TFI=
-github.com/rustyeddy/otto v0.0.11/go.mod h1:1CljXS3b7RlZxSWTAvrwNgMYemsNO/Ci7jTpvHgX554=
 github.com/stretchr/testify v1.11.1 h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=
 github.com/stretchr/testify v1.11.1/go.mod h1:wZwfW3scLgRK+23gO65QZefKpKQRnfz6sD981Nm4B6U=
 github.com/warthog618/go-gpiocdev v0.9.1 h1:pwHPaqjJfhCipIQl78V+O3l9OKHivdRDdmgXYbmhuCI=
